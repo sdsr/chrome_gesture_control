@@ -30,28 +30,28 @@ async function executeAction(action, tabId, windowId, tabUrl) {
       // ========== 탐색 ==========
 
       case "BACK":
-        chrome.scripting.executeScript({
+        await chrome.scripting.executeScript({
           target: { tabId },
           func: () => history.back(),
         });
         break;
 
       case "FORWARD":
-        chrome.scripting.executeScript({
+        await chrome.scripting.executeScript({
           target: { tabId },
           func: () => history.forward(),
         });
         break;
 
       case "JUMPTO_TOP":
-        chrome.scripting.executeScript({
+        await chrome.scripting.executeScript({
           target: { tabId },
           func: () => window.scrollTo({ top: 0, behavior: "smooth" }),
         });
         break;
 
       case "JUMPTO_BOTTOM":
-        chrome.scripting.executeScript({
+        await chrome.scripting.executeScript({
           target: { tabId },
           func: () =>
             window.scrollTo({
@@ -62,7 +62,7 @@ async function executeAction(action, tabId, windowId, tabUrl) {
         break;
 
       case "PAGE_UP":
-        chrome.scripting.executeScript({
+        await chrome.scripting.executeScript({
           target: { tabId },
           func: () =>
             window.scrollBy({ top: -window.innerHeight, behavior: "smooth" }),
@@ -70,7 +70,7 @@ async function executeAction(action, tabId, windowId, tabUrl) {
         break;
 
       case "PAGE_DOWN":
-        chrome.scripting.executeScript({
+        await chrome.scripting.executeScript({
           target: { tabId },
           func: () =>
             window.scrollBy({ top: window.innerHeight, behavior: "smooth" }),
@@ -78,27 +78,25 @@ async function executeAction(action, tabId, windowId, tabUrl) {
         break;
 
       case "HOMEPAGE":
-        // 새 탭 페이지로 이동 (Chrome 홈페이지)
-        chrome.tabs.update(tabId, { url: "chrome://newtab" });
+        await chrome.tabs.update(tabId, { url: "chrome://newtab" });
         break;
 
       case "REFRESH":
-        chrome.tabs.reload(tabId);
+        await chrome.tabs.reload(tabId);
         break;
 
       // ========== 탭 관리 ==========
 
       case "NEW_TAB":
-        chrome.tabs.create({});
+        await chrome.tabs.create({});
         break;
 
       case "CLOSE_TAB":
-        chrome.tabs.remove(tabId);
+        await chrome.tabs.remove(tabId);
         break;
 
       case "CLONE_TAB":
-        // 현재 탭 복제: tabs.duplicate()는 동일한 URL의 새 탭을 생성한다
-        chrome.tabs.duplicate(tabId);
+        await chrome.tabs.duplicate(tabId);
         break;
 
       case "ACTIVATE_LEFT_TAB": {
@@ -134,19 +132,17 @@ async function executeAction(action, tabId, windowId, tabUrl) {
       }
 
       case "CLOSE_OTHER_TAB": {
-        // 현재 탭을 제외한 같은 창의 모든 탭 닫기
         const tabs = await chrome.tabs.query({ windowId });
         const otherTabIds = tabs
           .filter((t) => t.id !== tabId)
           .map((t) => t.id);
         if (otherTabIds.length > 0) {
-          chrome.tabs.remove(otherTabIds);
+          await chrome.tabs.remove(otherTabIds);
         }
         break;
       }
 
       case "CLOSE_LEFT_TAB": {
-        // 현재 탭 왼쪽의 모든 탭 닫기
         const tabs = await chrome.tabs.query({ windowId });
         const currentTab = tabs.find((t) => t.id === tabId);
         if (currentTab) {
@@ -154,14 +150,13 @@ async function executeAction(action, tabId, windowId, tabUrl) {
             .filter((t) => t.index < currentTab.index)
             .map((t) => t.id);
           if (leftTabIds.length > 0) {
-            chrome.tabs.remove(leftTabIds);
+            await chrome.tabs.remove(leftTabIds);
           }
         }
         break;
       }
 
       case "CLOSE_RIGHT_TAB": {
-        // 현재 탭 오른쪽의 모든 탭 닫기
         const tabs = await chrome.tabs.query({ windowId });
         const currentTab = tabs.find((t) => t.id === tabId);
         if (currentTab) {
@@ -169,7 +164,7 @@ async function executeAction(action, tabId, windowId, tabUrl) {
             .filter((t) => t.index > currentTab.index)
             .map((t) => t.id);
           if (rightTabIds.length > 0) {
-            chrome.tabs.remove(rightTabIds);
+            await chrome.tabs.remove(rightTabIds);
           }
         }
         break;
@@ -187,57 +182,50 @@ async function executeAction(action, tabId, windowId, tabUrl) {
       // ========== 창 관리 ==========
 
       case "NEW_WINDOW":
-        chrome.windows.create({});
+        await chrome.windows.create({});
         break;
 
       case "OPENIN_SECRET_WINDOW":
-        // 현재 탭의 URL을 시크릿 창으로 연다.
-        // chrome://extensions에서 "시크릿 모드에서 허용"을 켜야
-        // 시크릿 창에서도 확장이 동작한다.
-        chrome.windows.create({
+        await chrome.windows.create({
           url: tabUrl || undefined,
           incognito: true,
         });
         break;
 
       case "CLOSE_WINDOW":
-        chrome.windows.remove(windowId);
+        await chrome.windows.remove(windowId);
         break;
 
       case "FULLSCREEN_WINDOW": {
-        // 전체화면 토글: fullscreen <-> normal
         const win = await chrome.windows.get(windowId);
         const newState =
           win.state === "fullscreen" ? "normal" : "fullscreen";
-        chrome.windows.update(windowId, { state: newState });
+        await chrome.windows.update(windowId, { state: newState });
         break;
       }
 
       case "MAXIMIZE_WINDOW": {
-        // 최대화 토글: maximized <-> normal
         const win = await chrome.windows.get(windowId);
         const newState =
           win.state === "maximized" ? "normal" : "maximized";
-        chrome.windows.update(windowId, { state: newState });
+        await chrome.windows.update(windowId, { state: newState });
         break;
       }
 
       case "MINIMIZE_WINDOW":
-        chrome.windows.update(windowId, { state: "minimized" });
+        await chrome.windows.update(windowId, { state: "minimized" });
         break;
 
       // ========== 기타 ==========
 
       case "TOGGLE_MUTE": {
-        // 현재 탭의 음소거 상태를 토글한다
         const tab = await chrome.tabs.get(tabId);
-        chrome.tabs.update(tabId, { muted: !tab.mutedInfo.muted });
+        await chrome.tabs.update(tabId, { muted: !tab.mutedInfo.muted });
         break;
       }
 
       case "OPEN_DOWNLOADS":
-        // 다운로드 페이지를 새 탭으로 열기
-        chrome.tabs.create({ url: "chrome://downloads" });
+        await chrome.tabs.create({ url: "chrome://downloads" });
         break;
 
       case "TOGGLE_BOOKMARK": {
@@ -270,6 +258,11 @@ async function executeAction(action, tabId, windowId, tabUrl) {
 }
 
 // 컨텐츠 스크립트로부터 메시지 수신
+//
+// [중요] return true를 반환하여 메시지 채널을 비동기로 유지한다.
+// 그렇지 않으면 Chrome이 리스너 함수 종료 즉시 서비스 워커를
+// 종료할 수 있어서, async인 executeAction이 완료되기 전에
+// 워커가 죽는 문제가 발생한다.
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "gesture" && sender.tab) {
     executeAction(
@@ -277,7 +270,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sender.tab.id,
       sender.tab.windowId,
       sender.tab.url
-    );
-    sendResponse({ success: true });
+    )
+      .then(() => sendResponse({ success: true }))
+      .catch((err) => sendResponse({ success: false, error: err.message }));
+
+    // true를 반환하면 Chrome이 sendResponse가 비동기로
+    // 호출될 것임을 알고 메시지 채널을 열어둔다.
+    // 서비스 워커도 Promise가 resolve될 때까지 유지된다.
+    return true;
   }
 });

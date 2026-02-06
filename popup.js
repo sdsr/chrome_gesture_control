@@ -125,7 +125,7 @@
     minDistance: 10,
     sensitivity: 30,
     showTrail: true,
-    showGestureName: true,
+    showGestureName: false,
   };
 
   // ----------------------------------------------------------
