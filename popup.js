@@ -71,20 +71,20 @@
   ];
 
   // ----------------------------------------------------------
-  // 16개 제스처 패턴 정의 (1방향 4개 + 2방향 12개)
+  // 14개 제스처 패턴 정의 (1방향 4개 + 왕복 2개 + ㄱ자 8개)
   //
   // pattern: 방향 시퀀스 문자열 (GESTURE_MAP의 키)
-  // label: 사람이 읽기 쉬운 화살표 표시
+  // pair: 왕복 제스처의 경우 역방향 패턴. 드롭박스 변경 시
+  //       pair 패턴에도 동일한 동작이 저장된다.
+  //       예: LR을 "홈페이지로"로 바꾸면 RL도 자동으로 동일하게 저장.
   // ----------------------------------------------------------
   const GESTURE_PATTERNS = [
     { pattern: "L", label: "\u2190" },
     { pattern: "R", label: "\u2192" },
     { pattern: "U", label: "\u2191" },
     { pattern: "D", label: "\u2193" },
-    { pattern: "LR", label: "\u2190 \u2192" },
-    { pattern: "RL", label: "\u2192 \u2190" },
-    { pattern: "UD", label: "\u2191 \u2193" },
-    { pattern: "DU", label: "\u2193 \u2191" },
+    { pattern: "LR", pair: "RL", label: "\u2190 \u2192" },
+    { pattern: "UD", pair: "DU", label: "\u2191 \u2193" },
     { pattern: "UL", label: "\u2191 \u2190" },
     { pattern: "UR", label: "\u2191 \u2192" },
     { pattern: "DL", label: "\u2193 \u2190" },
@@ -158,7 +158,13 @@
   // - 1방향: 시작점(반대쪽) -> 끝점(방향쪽)
   // - 2방향: 시작점 -> 중앙(꺾임점) -> 끝점
   // ----------------------------------------------------------
-  function createGestureSVG(pattern) {
+  /**
+   * 제스처 패턴을 SVG 아이콘으로 그린다.
+   *
+   * @param {string}  pattern   - 방향 시퀀스 ("L", "UR", "LR" 등)
+   * @param {boolean} bothEnds  - true이면 양쪽 끝에 화살표를 그린다 (왕복 제스처)
+   */
+  function createGestureSVG(pattern, bothEnds) {
     const size = 40;
     const pad = 8;
     const mid = size / 2;
@@ -178,42 +184,59 @@
     let pts;
 
     if (dirs.length === 1) {
-      // 1방향: 반대쪽에서 출발, 해당 방향으로 이동
       const start = endPoints[opposite[dirs[0]]];
       const end = endPoints[dirs[0]];
       pts = [start, end];
     } else {
-      // 2방향: 첫 번째 방향의 반대에서 출발, 중앙에서 꺾어 두 번째 방향으로
       const start = endPoints[opposite[dirs[0]]];
       const end = endPoints[dirs[1]];
       pts = [start, [mid, mid], end];
     }
 
-    // 화살표 머리 계산 (끝점 기준)
-    const last = pts[pts.length - 1];
-    const prev = pts[pts.length - 2];
-    const angle = Math.atan2(last[1] - prev[1], last[0] - prev[0]);
     const arrowLen = 7;
     const arrowAngle = Math.PI / 6; // 30도
 
-    const a1x = last[0] - arrowLen * Math.cos(angle - arrowAngle);
-    const a1y = last[1] - arrowLen * Math.sin(angle - arrowAngle);
-    const a2x = last[0] - arrowLen * Math.cos(angle + arrowAngle);
-    const a2y = last[1] - arrowLen * Math.sin(angle + arrowAngle);
+    // 끝점 화살표 (항상 그림)
+    const last = pts[pts.length - 1];
+    const prev = pts[pts.length - 2];
+    const endAngle = Math.atan2(last[1] - prev[1], last[0] - prev[0]);
 
-    // SVG 생성
+    const e1x = last[0] - arrowLen * Math.cos(endAngle - arrowAngle);
+    const e1y = last[1] - arrowLen * Math.sin(endAngle - arrowAngle);
+    const e2x = last[0] - arrowLen * Math.cos(endAngle + arrowAngle);
+    const e2y = last[1] - arrowLen * Math.sin(endAngle + arrowAngle);
+
     const pointsStr = pts.map((p) => p.join(",")).join(" ");
 
-    return [
-      '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + " " + size + '">',
-      '  <polyline points="' + pointsStr + '"',
-      '    fill="none" stroke="#3a9c8e" stroke-width="2.5"',
-      '    stroke-linecap="round" stroke-linejoin="round" />',
-      '  <polyline points="' + a1x + "," + a1y + " " + last.join(",") + " " + a2x + "," + a2y + '"',
-      '    fill="none" stroke="#3a9c8e" stroke-width="2.5"',
-      '    stroke-linecap="round" stroke-linejoin="round" />',
-      "</svg>",
-    ].join("");
+    let svg =
+      '<svg width="' + size + '" height="' + size +
+      '" viewBox="0 0 ' + size + " " + size + '">' +
+      '  <polyline points="' + pointsStr + '"' +
+      '    fill="none" stroke="#3a9c8e" stroke-width="2.5"' +
+      '    stroke-linecap="round" stroke-linejoin="round" />' +
+      '  <polyline points="' + e1x + "," + e1y + " " + last.join(",") + " " + e2x + "," + e2y + '"' +
+      '    fill="none" stroke="#3a9c8e" stroke-width="2.5"' +
+      '    stroke-linecap="round" stroke-linejoin="round" />';
+
+    // 양방향 화살표 (왕복 제스처)
+    if (bothEnds) {
+      const first = pts[0];
+      const next = pts[1];
+      const startAngle = Math.atan2(first[1] - next[1], first[0] - next[0]);
+
+      const s1x = first[0] - arrowLen * Math.cos(startAngle - arrowAngle);
+      const s1y = first[1] - arrowLen * Math.sin(startAngle - arrowAngle);
+      const s2x = first[0] - arrowLen * Math.cos(startAngle + arrowAngle);
+      const s2y = first[1] - arrowLen * Math.sin(startAngle + arrowAngle);
+
+      svg +=
+        '  <polyline points="' + s1x + "," + s1y + " " + first.join(",") + " " + s2x + "," + s2y + '"' +
+        '    fill="none" stroke="#3a9c8e" stroke-width="2.5"' +
+        '    stroke-linecap="round" stroke-linejoin="round" />';
+    }
+
+    svg += "</svg>";
+    return svg;
   }
 
   // ----------------------------------------------------------
@@ -222,7 +245,14 @@
   // ACTION_GROUPS를 <optgroup>으로 그룹핑하여
   // Whale 설정 화면과 유사한 구조를 만든다.
   // ----------------------------------------------------------
-  function createActionSelect(pattern, selectedAction) {
+  /**
+   * 드롭다운 <select> 생성
+   *
+   * @param {string} pattern - 제스처 패턴 (예: "LR")
+   * @param {string} selectedAction - 현재 선택된 동작 ID
+   * @param {string|undefined} pair - 왕복 제스처의 역방향 패턴 (예: "RL")
+   */
+  function createActionSelect(pattern, selectedAction, pair) {
     const select = document.createElement("select");
     select.className = "gesture-select";
     select.dataset.pattern = pattern;
@@ -250,9 +280,12 @@
       select.appendChild(optgroup);
     }
 
-    // 변경 시 저장
+    // 변경 시 저장 (pair가 있으면 역방향도 동일하게 저장)
     select.addEventListener("change", () => {
       currentGestureMap[pattern] = select.value;
+      if (pair) {
+        currentGestureMap[pair] = select.value;
+      }
       saveGestureMap();
     });
 
@@ -266,18 +299,20 @@
     const container = elements.gestureConfigList;
     container.innerHTML = "";
 
-    for (const { pattern } of GESTURE_PATTERNS) {
+    for (const { pattern, pair } of GESTURE_PATTERNS) {
       const row = document.createElement("div");
       row.className = "gesture-config-row";
 
-      // SVG 아이콘
+      // SVG 아이콘 (왕복 제스처면 양방향 화살표)
       const iconDiv = document.createElement("div");
       iconDiv.className = "gesture-icon";
-      iconDiv.innerHTML = createGestureSVG(pattern);
+      iconDiv.innerHTML = pair
+        ? createGestureSVG(pattern, true)
+        : createGestureSVG(pattern, false);
 
-      // 드롭다운
+      // 드롭다운 (pair 전달)
       const selectedAction = currentGestureMap[pattern] || "NONE";
-      const select = createActionSelect(pattern, selectedAction);
+      const select = createActionSelect(pattern, selectedAction, pair);
 
       row.appendChild(iconDiv);
       row.appendChild(select);

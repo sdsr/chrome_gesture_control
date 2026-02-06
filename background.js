@@ -46,7 +46,7 @@ async function executeAction(action, tabId, windowId, tabUrl) {
       case "JUMPTO_TOP":
         await chrome.scripting.executeScript({
           target: { tabId },
-          func: () => window.scrollTo({ top: 0, behavior: "smooth" }),
+          func: () => window.scrollTo({ top: 0, behavior: "instant" }),
         });
         break;
 
@@ -56,7 +56,7 @@ async function executeAction(action, tabId, windowId, tabUrl) {
           func: () =>
             window.scrollTo({
               top: document.documentElement.scrollHeight,
-              behavior: "smooth",
+              behavior: "instant",
             }),
         });
         break;
@@ -205,9 +205,10 @@ async function executeAction(action, tabId, windowId, tabUrl) {
       }
 
       case "MAXIMIZE_WINDOW": {
+        // F11과 동일한 전체화면 토글
         const win = await chrome.windows.get(windowId);
         const newState =
-          win.state === "maximized" ? "normal" : "maximized";
+          win.state === "fullscreen" ? "normal" : "fullscreen";
         await chrome.windows.update(windowId, { state: newState });
         break;
       }
