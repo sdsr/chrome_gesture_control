@@ -1,0 +1,52 @@
+{
+  "extName": {
+    "message": "Mouse Gesture Navigation"
+  },
+  "extDescription": {
+    "message": "마우스 제스처로 크롬을 빠르게 조작합니다. 우클릭 드래그로 뒤로가기, 탭 닫기, 새 탭 열기 등을 실행할 수 있습니다."
+  },
+
+  "popupSubtitle": { "message": "마우스 제스처 설정" },
+  "settingEnabled": { "message": "제스처 활성화" },
+  "settingShowTrail": { "message": "궤적 표시" },
+  "settingShowGestureName": { "message": "제스처 이름 표시" },
+  "settingTrailColor": { "message": "궤적 색상" },
+  "settingTrailWidth": { "message": "궤적 두께" },
+  "settingSensitivity": { "message": "민감도" },
+  "headerGesture": { "message": "제스처" },
+  "headerAction": { "message": "동작" },
+  "btnResetDefaults": { "message": "기본값으로 초기화" },
+  "actionNone": { "message": "없음" },
+
+  "groupNavigation": { "message": "탐색" },
+  "groupTab": { "message": "탭" },
+  "groupWindow": { "message": "창" },
+  "groupEtc": { "message": "기타" },
+
+  "actionBack": { "message": "이전 페이지" },
+  "actionForward": { "message": "다음 페이지" },
+  "actionJumpToTop": { "message": "맨 위로" },
+  "actionJumpToBottom": { "message": "맨 아래로" },
+  "actionHomepage": { "message": "홈페이지로" },
+  "actionRefresh": { "message": "새로고침" },
+  "actionPageUp": { "message": "한 페이지 위로" },
+  "actionPageDown": { "message": "한 페이지 아래로" },
+  "actionNewTab": { "message": "새 탭 열기" },
+  "actionCloseTab": { "message": "탭 닫기" },
+  "actionCloneTab": { "message": "탭 복제" },
+  "actionActivateLeftTab": { "message": "왼쪽 탭으로 이동" },
+  "actionActivateRightTab": { "message": "오른쪽 탭으로 이동" },
+  "actionCloseOtherTab": { "message": "다른 탭 모두 닫기" },
+  "actionCloseLeftTab": { "message": "왼쪽 탭 모두 닫기" },
+  "actionCloseRightTab": { "message": "오른쪽 탭 모두 닫기" },
+  "actionReopenClosedTab": { "message": "닫은 탭 다시 열기" },
+  "actionNewWindow": { "message": "새 창 열기" },
+  "actionOpenInSecretWindow": { "message": "시크릿창에서 열기" },
+  "actionCloseWindow": { "message": "창 닫기" },
+  "actionFullscreenWindow": { "message": "전체화면" },
+  "actionMaximizeWindow": { "message": "창 최대화" },
+  "actionMinimizeWindow": { "message": "창 최소화" },
+  "actionToggleMute": { "message": "소리 끄기/켜기" },
+  "actionOpenDownloads": { "message": "다운로드 열기" },
+  "actionToggleBookmark": { "message": "북마크 추가/삭제" }
+}

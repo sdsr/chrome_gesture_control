@@ -1,0 +1,52 @@
+{
+  "extName": {
+    "message": "Mouse Gesture Navigation"
+  },
+  "extDescription": {
+    "message": "Control Chrome with mouse gestures. Right-click and drag to go back/forward, close tabs, open new tabs, and more."
+  },
+
+  "popupSubtitle": { "message": "Mouse Gesture Settings" },
+  "settingEnabled": { "message": "Enable Gestures" },
+  "settingShowTrail": { "message": "Show Trail" },
+  "settingShowGestureName": { "message": "Show Gesture Name" },
+  "settingTrailColor": { "message": "Trail Color" },
+  "settingTrailWidth": { "message": "Trail Width" },
+  "settingSensitivity": { "message": "Sensitivity" },
+  "headerGesture": { "message": "Gesture" },
+  "headerAction": { "message": "Action" },
+  "btnResetDefaults": { "message": "Reset to Defaults" },
+  "actionNone": { "message": "None" },
+
+  "groupNavigation": { "message": "Navigation" },
+  "groupTab": { "message": "Tab" },
+  "groupWindow": { "message": "Window" },
+  "groupEtc": { "message": "Other" },
+
+  "actionBack": { "message": "Go Back" },
+  "actionForward": { "message": "Go Forward" },
+  "actionJumpToTop": { "message": "Scroll to Top" },
+  "actionJumpToBottom": { "message": "Scroll to Bottom" },
+  "actionHomepage": { "message": "Go to Homepage" },
+  "actionRefresh": { "message": "Reload" },
+  "actionPageUp": { "message": "Page Up" },
+  "actionPageDown": { "message": "Page Down" },
+  "actionNewTab": { "message": "New Tab" },
+  "actionCloseTab": { "message": "Close Tab" },
+  "actionCloneTab": { "message": "Duplicate Tab" },
+  "actionActivateLeftTab": { "message": "Switch to Left Tab" },
+  "actionActivateRightTab": { "message": "Switch to Right Tab" },
+  "actionCloseOtherTab": { "message": "Close Other Tabs" },
+  "actionCloseLeftTab": { "message": "Close Left Tabs" },
+  "actionCloseRightTab": { "message": "Close Right Tabs" },
+  "actionReopenClosedTab": { "message": "Reopen Closed Tab" },
+  "actionNewWindow": { "message": "New Window" },
+  "actionOpenInSecretWindow": { "message": "Open in Incognito" },
+  "actionCloseWindow": { "message": "Close Window" },
+  "actionFullscreenWindow": { "message": "Fullscreen" },
+  "actionMaximizeWindow": { "message": "Maximize Window" },
+  "actionMinimizeWindow": { "message": "Minimize Window" },
+  "actionToggleMute": { "message": "Toggle Mute" },
+  "actionOpenDownloads": { "message": "Open Downloads" },
+  "actionToggleBookmark": { "message": "Toggle Bookmark" }
+}

@@ -1,0 +1,320 @@
+/*
+ * Mouse Gesture Navigation - Popup Styles
+ *
+ * 확장 프로그램 팝업의 UI를 정의한다.
+ * Whale 브라우저 설정 화면과 유사한 깔끔한 디자인.
+ */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  width: 380px;
+  max-height: 580px;
+  overflow-y: auto;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  font-size: 13px;
+  color: #2c2c2c;
+  background: #ffffff;
+}
+
+/* 스크롤바 스타일 */
+body::-webkit-scrollbar {
+  width: 6px;
+}
+
+body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+body::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 3px;
+}
+
+body::-webkit-scrollbar-thumb:hover {
+  background: #aaa;
+}
+
+.container {
+  padding: 16px;
+}
+
+/* 헤더 */
+.header {
+  margin-bottom: 16px;
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 2px;
+}
+
+.subtitle {
+  font-size: 12px;
+  color: #888;
+  font-weight: 400;
+}
+
+/* 구분선 */
+.divider {
+  border: none;
+  border-top: 1px solid #eee;
+  margin: 12px 0;
+}
+
+/* 설정 행 */
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+}
+
+.setting-label {
+  font-size: 13px;
+  color: #333;
+  font-weight: 500;
+}
+
+/* 토글 스위치 */
+.toggle {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 22px;
+}
+
+.toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  border-radius: 22px;
+  transition: background-color 0.2s ease;
+}
+
+.toggle-slider::before {
+  content: "";
+  position: absolute;
+  height: 18px;
+  width: 18px;
+  left: 2px;
+  bottom: 2px;
+  background-color: white;
+  border-radius: 50%;
+  transition: transform 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.toggle input:checked + .toggle-slider {
+  background-color: #3a9c8e;
+}
+
+.toggle input:checked + .toggle-slider::before {
+  transform: translateX(18px);
+}
+
+/* 색상 선택 */
+.color-picker {
+  -webkit-appearance: none;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  width: 36px;
+  height: 28px;
+  cursor: pointer;
+  padding: 2px;
+}
+
+.color-picker::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.color-picker::-webkit-color-swatch {
+  border: none;
+  border-radius: 3px;
+}
+
+/* 레인지 슬라이더 */
+.range-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.range-group input[type="range"] {
+  width: 100px;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: #ddd;
+  border-radius: 2px;
+  outline: none;
+}
+
+.range-group input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #3a9c8e;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.range-value {
+  font-size: 12px;
+  color: #666;
+  min-width: 32px;
+  text-align: right;
+}
+
+/* ===== 제스처 매핑 설정 ===== */
+
+.gesture-config {
+  margin-top: 4px;
+}
+
+.gesture-config-header {
+  display: flex;
+  align-items: center;
+  padding: 0 0 8px 0;
+}
+
+.config-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.config-title:first-child {
+  width: 56px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.config-title:last-child {
+  flex: 1;
+  margin-left: 8px;
+}
+
+.gesture-config-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* 각 제스처 설정 행 */
+.gesture-config-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+/* 제스처 아이콘 (SVG) */
+.gesture-icon {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f7f8fa;
+  border-radius: 6px;
+  margin-left: 8px;
+}
+
+.gesture-icon svg {
+  display: block;
+}
+
+/* 동작 드롭다운 */
+.gesture-select {
+  flex: 1;
+  height: 32px;
+  padding: 0 28px 0 10px;
+  font-size: 12px;
+  font-family: inherit;
+  color: #333;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  outline: none;
+  cursor: pointer;
+
+  /* 기본 화살표 제거 후 커스텀 화살표 */
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23999'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+
+.gesture-select:hover {
+  border-color: #bbb;
+}
+
+.gesture-select:focus {
+  border-color: #3a9c8e;
+  box-shadow: 0 0 0 2px rgba(58, 156, 142, 0.15);
+}
+
+/* optgroup 스타일 */
+.gesture-select optgroup {
+  font-weight: 600;
+  color: #666;
+  font-size: 11px;
+}
+
+.gesture-select option {
+  font-weight: 400;
+  color: #333;
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
+/* 초기화 버튼 */
+.reset-btn {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  padding: 8px 0;
+  font-size: 12px;
+  font-family: inherit;
+  font-weight: 500;
+  color: #666;
+  background: #f7f8fa;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.reset-btn:hover {
+  background: #eef0f2;
+  border-color: #ccc;
+  color: #333;
+}
+
+.reset-btn:active {
+  background: #e5e7e9;
+}
