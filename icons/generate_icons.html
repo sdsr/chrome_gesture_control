@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Icon Generator</title>
+</head>
+<body>
+  <h2>Click each button to download the icon</h2>
+  <canvas id="canvas" style="display:none"></canvas>
+  <button onclick="generateIcon(16)">16x16</button>
+  <button onclick="generateIcon(48)">48x48</button>
+  <button onclick="generateIcon(128)">128x128</button>
+
+  <script>
+    function generateIcon(size) {
+      const canvas = document.getElementById('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+
+      // Background circle
+      ctx.fillStyle = '#4A90D9';
+      ctx.beginPath();
+      ctx.arc(size/2, size/2, size/2, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Arrow (gesture symbol)
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = Math.max(size / 10, 1.5);
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      // Draw a gesture-like arrow path
+      const p = size * 0.2;
+      const q = size * 0.8;
+      const mid = size * 0.5;
+
+      ctx.beginPath();
+      ctx.moveTo(p, mid);
+      ctx.lineTo(q, mid);
+      // Arrowhead
+      ctx.moveTo(q - size*0.15, mid - size*0.15);
+      ctx.lineTo(q, mid);
+      ctx.lineTo(q - size*0.15, mid + size*0.15);
+      ctx.stroke();
+
+      // Download
+      const a = document.createElement('a');
+      a.download = 'icon' + size + '.png';
+      a.href = canvas.toDataURL('image/png');
+      a.click();
+    }
+  </script>
+</body>
+</html>
