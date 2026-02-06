@@ -183,7 +183,11 @@
     const dirs = pattern.split("");
     let pts;
 
-    if (dirs.length === 1) {
+    if (bothEnds) {
+      // 왕복 제스처: 첫 번째 방향 끝점 <-> 두 번째 방향 끝점 직선
+      // 예: LR -> 왼쪽 끝 <-> 오른쪽 끝, UD -> 위쪽 끝 <-> 아래쪽 끝
+      pts = [endPoints[dirs[0]], endPoints[dirs[1]]];
+    } else if (dirs.length === 1) {
       const start = endPoints[opposite[dirs[0]]];
       const end = endPoints[dirs[0]];
       pts = [start, end];
