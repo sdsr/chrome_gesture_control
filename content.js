@@ -162,6 +162,18 @@
   let lastPoint = null;
   let totalDistance = 0;
   let activePointerId = null; // Pointer Capture에 사용할 포인터 ID
+  let usingPointerEvents = false;
+  let isTopFrame = false;
+  let topShieldRequested = false;
+  let remoteShieldCleanupTimer = null;
+  const BRIDGE_SOURCE = "mouse-gesture-navigation";
+  const BRIDGE_EXTENSION_ID = chrome.runtime.id;
+
+  try {
+    isTopFrame = window === window.top;
+  } catch (e) {
+    isTopFrame = false;
+  }
 
   // ----------------------------------------------------------
   // 드래그 판정 임계값 (px)
@@ -213,6 +225,9 @@
   // shield가 별도로 필요하다.
   // ----------------------------------------------------------
   let contextMenuShield = null;
+  let iframeHoverGuard = null;
+  let iframeHoverGuardFrame = null;
+  let iframeHoverGuardDisabledUntilMove = false;
 
   /**
    * 트레일 캔버스를 생성하고 화면 전체를 덮도록 설정한다.
@@ -312,6 +327,191 @@
       contextMenuShield.parentNode.removeChild(contextMenuShield);
     }
     contextMenuShield = null;
+  }
+
+  function clearRemoteShieldCleanupTimer() {
+    if (remoteShieldCleanupTimer) {
+      clearTimeout(remoteShieldCleanupTimer);
+      remoteShieldCleanupTimer = null;
+    }
+  }
+
+  function createRemoteContextMenuShield() {
+    createContextMenuShield();
+    clearRemoteShieldCleanupTimer();
+    remoteShieldCleanupTimer = setTimeout(() => {
+      if (!isGesturing) {
+        removeContextMenuShield();
+      }
+      remoteShieldCleanupTimer = null;
+    }, 2000);
+  }
+
+  function requestTopContextMenuShield() {
+    if (topShieldRequested) return;
+    topShieldRequested = true;
+
+    if (isTopFrame) {
+      createContextMenuShield();
+      return;
+    }
+
+    try {
+      window.top.postMessage(
+        {
+          source: BRIDGE_SOURCE,
+          extensionId: BRIDGE_EXTENSION_ID,
+          type: "gesture-frame-drag-start",
+        },
+        "*"
+      );
+    } catch (err) {}
+
+    try {
+      chrome.runtime.sendMessage({ type: "gesture-frame-drag-start" }, () => {
+        const err = chrome.runtime.lastError;
+        if (err) {
+          console.debug("[Gesture] top shield request failed:", err.message);
+        }
+      });
+    } catch (err) {}
+  }
+
+  function getIframeMatchText(iframe) {
+    const parts = [];
+    let el = iframe;
+    for (let i = 0; el && i < 3; i += 1, el = el.parentElement) {
+      parts.push(
+        el.id,
+        el.getAttribute("title"),
+        el.getAttribute("aria-label"),
+        el.getAttribute("src"),
+        String(el.className || "")
+      );
+    }
+    return parts
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ");
+  }
+
+  function isGestureBlockingIframe(iframe) {
+    if (!iframe || iframe.tagName !== "IFRAME") return false;
+    const title = (iframe.getAttribute("title") || "").trim().toLowerCase();
+    if (title === "ad" || title === "advertisement") return true;
+
+    const text = getIframeMatchText(iframe);
+    return /\b(ad|ads|advert|advertisement|banner|veta|glad|gfp|lrec|timeboard)\b/.test(
+      text
+    );
+  }
+
+  function positionIframeHoverGuard() {
+    if (!iframeHoverGuard || !iframeHoverGuardFrame) return;
+    if (!iframeHoverGuardFrame.isConnected) {
+      removeIframeHoverGuard();
+      return;
+    }
+
+    const rect = iframeHoverGuardFrame.getBoundingClientRect();
+    const style = window.getComputedStyle(iframeHoverGuardFrame);
+    const visible =
+      rect.width > 1 &&
+      rect.height > 1 &&
+      rect.right > 0 &&
+      rect.bottom > 0 &&
+      rect.left < window.innerWidth &&
+      rect.top < window.innerHeight &&
+      style.display !== "none" &&
+      style.visibility !== "hidden";
+
+    iframeHoverGuard.style.display = visible ? "block" : "none";
+    if (!visible) return;
+
+    iframeHoverGuard.style.left = rect.left + "px";
+    iframeHoverGuard.style.top = rect.top + "px";
+    iframeHoverGuard.style.width = rect.width + "px";
+    iframeHoverGuard.style.height = rect.height + "px";
+  }
+
+  function removeIframeHoverGuard() {
+    if (iframeHoverGuard && iframeHoverGuard.parentNode) {
+      iframeHoverGuard.parentNode.removeChild(iframeHoverGuard);
+    }
+    iframeHoverGuard = null;
+    iframeHoverGuardFrame = null;
+    iframeHoverGuardDisabledUntilMove = false;
+  }
+
+  function createIframeHoverGuard(iframe) {
+    if (!isTopFrame || !settings.enabled || iframeHoverGuardDisabledUntilMove) {
+      return;
+    }
+    if (iframeHoverGuardFrame === iframe && iframeHoverGuard) {
+      positionIframeHoverGuard();
+      return;
+    }
+
+    removeIframeHoverGuard();
+    iframeHoverGuardFrame = iframe;
+    iframeHoverGuard = document.createElement("div");
+    iframeHoverGuard.className = "mouse-gesture-iframe-hover-guard";
+    iframeHoverGuard.setAttribute("aria-hidden", "true");
+    iframeHoverGuard.style.cssText = [
+      "position: fixed",
+      "z-index: 2147483645",
+      "pointer-events: auto",
+      "background: transparent",
+      "user-select: none",
+      "touch-action: none",
+    ].join(";");
+
+    iframeHoverGuard.addEventListener("pointerdown", onIframeHoverGuardDown, true);
+    iframeHoverGuard.addEventListener("mousedown", onIframeHoverGuardDown, true);
+    iframeHoverGuard.addEventListener("pointermove", onPointerMove, true);
+    iframeHoverGuard.addEventListener("mousemove", onPointerMove, true);
+    iframeHoverGuard.addEventListener("pointerup", onPointerUp, true);
+    iframeHoverGuard.addEventListener("mouseup", onPointerUp, true);
+    iframeHoverGuard.addEventListener("contextmenu", onContextMenu, true);
+    iframeHoverGuard.addEventListener(
+      "mouseleave",
+      () => {
+        if (!isGesturing) removeIframeHoverGuard();
+      },
+      true
+    );
+
+    document.documentElement.appendChild(iframeHoverGuard);
+    positionIframeHoverGuard();
+  }
+
+  function onIframeHoverGuardDown(e) {
+    if (e.button !== 2) {
+      removeIframeHoverGuard();
+      iframeHoverGuardDisabledUntilMove = true;
+      setTimeout(() => {
+        iframeHoverGuardDisabledUntilMove = false;
+      }, 500);
+      return;
+    }
+
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    onPointerDown(e);
+  }
+
+  function onDocumentMouseOver(e) {
+    if (!isTopFrame || !settings.enabled || isGesturing) return;
+    const target = e.target;
+    if (!target || target.tagName !== "IFRAME") return;
+    if (!isGestureBlockingIframe(target)) return;
+    createIframeHoverGuard(target);
+  }
+
+  function onWindowLayoutChanged() {
+    positionIframeHoverGuard();
   }
 
   function drawTrail(x, y) {
@@ -430,27 +630,37 @@
   // 확장 컨텍스트가 무효화되면 자동으로 리스너를 전부 제거한다.
   // ----------------------------------------------------------
 
-  function onPointerDown(e) {
-    if (!settings.enabled) return;
-    if (e.button !== 2) return;
+  function isRightButtonPressed(e) {
+    if (typeof e.buttons === "number") {
+      return (e.buttons & 2) === 2;
+    }
+    return e.button === 2;
+  }
 
+  function beginGesture(e, startedByDrag) {
+    clearRemoteShieldCleanupTimer();
     isGesturing = true;
-    gestureDetected = false;
+    gestureDetected = !!startedByDrag;
     points = [{ x: e.clientX, y: e.clientY }];
     directions = [];
     segmentDistances = [];
     lastPoint = { x: e.clientX, y: e.clientY };
     totalDistance = 0;
-    activePointerId = e.pointerId;
+    usingPointerEvents = e.type.indexOf("pointer") === 0;
+    activePointerId =
+      typeof e.pointerId === "number" ? e.pointerId : null;
 
     // Pointer Capture: iframe, 광고 위를 지나가도 이벤트가 끊기지 않는다.
-    try {
-      document.documentElement.setPointerCapture(e.pointerId);
-    } catch (err) {}
+    if (activePointerId !== null && isTopFrame) {
+      try {
+        document.documentElement.setPointerCapture(activePointerId);
+      } catch (err) {}
+    }
 
-    // iframe 위에서 드래그가 끝나도 contextmenu를 차단할 수 있도록
-    // 투명 shield를 깔아둔다.
-    createContextMenuShield();
+    if (startedByDrag) {
+      createContextMenuShield();
+      requestTopContextMenuShield();
+    }
 
     if (settings.showTrail) {
       createCanvas();
@@ -460,8 +670,32 @@
     }
   }
 
+  function onPointerDown(e) {
+    if (!settings.enabled) return;
+    if (e.button !== 2) return;
+    if (isGesturing) return;
+
+    if (!isTopFrame) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+    }
+
+    beginGesture(e, false);
+    if (!isTopFrame) {
+      requestTopContextMenuShield();
+    }
+  }
+
   function onPointerMove(e) {
-    if (!isGesturing) return;
+    if (!isGesturing) {
+      if (!settings.enabled || !isRightButtonPressed(e)) return;
+      // iframe 안에서 우클릭이 시작되어 pointerdown을 놓쳤더라도,
+      // 버튼이 눌린 채 움직임이 처음 잡히는 순간부터 제스처를 이어받는다.
+      beginGesture(e, true);
+      return;
+    }
+    if (usingPointerEvents && e.type === "mousemove") return;
 
     const current = { x: e.clientX, y: e.clientY };
     points.push(current);
@@ -473,6 +707,8 @@
     // 드래그가 감지되는 즉시 컨텍스트 메뉴 차단 플래그를 건다.
     if (!gestureDetected && totalDistance > DRAG_THRESHOLD) {
       gestureDetected = true;
+      createContextMenuShield();
+      requestTopContextMenuShield();
     }
 
     if (dist >= settings.minDistance) {
@@ -523,14 +759,23 @@
   }
 
   function onPointerUp(e) {
-    if (!isGesturing) return;
+    if (!isGesturing) {
+      if (contextMenuShield && remoteShieldCleanupTimer) {
+        removeContextMenuShield();
+        clearRemoteShieldCleanupTimer();
+      }
+      return;
+    }
+    if (usingPointerEvents && e.type === "mouseup") return;
     if (e.button !== 2) return;
 
     isGesturing = false;
 
-    try {
-      document.documentElement.releasePointerCapture(e.pointerId);
-    } catch (err) {}
+    if (activePointerId !== null) {
+      try {
+        document.documentElement.releasePointerCapture(activePointerId);
+      } catch (err) {}
+    }
     activePointerId = null;
 
     console.log(
@@ -563,7 +808,7 @@
         }
 
         showGestureName(ACTION_LABELS[action] || action);
-        setTimeout(cleanup, 300);
+        setTimeout(cleanup, 150);
         return;
       }
     }
@@ -599,10 +844,14 @@
     removeCanvas();
     removeOverlay();
     removeContextMenuShield();
+    removeIframeHoverGuard();
     points = [];
     directions = [];
     segmentDistances = [];
     totalDistance = 0;
+    usingPointerEvents = false;
+    topShieldRequested = false;
+    clearRemoteShieldCleanupTimer();
   }
 
   // ----------------------------------------------------------
@@ -613,10 +862,13 @@
   // 모든 리스너를 자동 제거하여 죽은 스크립트가 남지 않도록 한다.
   // ----------------------------------------------------------
   const boundHandlers = [];
+  const handledEvents = new WeakSet();
 
   function safeBind(target, event, handler, options) {
     const wrapped = function (e) {
       try {
+        if (handledEvents.has(e)) return;
+        handledEvents.add(e);
         handler(e);
       } catch (err) {
         if (
@@ -636,9 +888,48 @@
     target.addEventListener(event, wrapped, options);
   }
 
+  try {
+    chrome.runtime.onMessage.addListener((message) => {
+      if (message && message.type === "gesture-create-context-shield") {
+        createRemoteContextMenuShield();
+      }
+    });
+  } catch (err) {}
+
+  function onWindowMessage(e) {
+    if (!isTopFrame) return;
+    const data = e.data;
+    if (
+      !data ||
+      data.source !== BRIDGE_SOURCE ||
+      data.extensionId !== BRIDGE_EXTENSION_ID ||
+      data.type !== "gesture-frame-drag-start"
+    ) {
+      return;
+    }
+    createRemoteContextMenuShield();
+  }
+
+  // window capture 리스너는 페이지/광고 레이어가 document 단계에서
+  // 이벤트 전파를 끊기 전에 우클릭 제스처를 먼저 잡는다.
+  safeBind(window, "pointerdown", onPointerDown, true);
+  safeBind(window, "pointermove", onPointerMove, true);
+  safeBind(window, "pointerup", onPointerUp, true);
+  safeBind(window, "mousedown", onPointerDown, true);
+  safeBind(window, "mousemove", onPointerMove, true);
+  safeBind(window, "mouseup", onPointerUp, true);
+  safeBind(window, "contextmenu", onContextMenu, true);
+  safeBind(window, "message", onWindowMessage, true);
+  safeBind(window, "resize", onWindowLayoutChanged, true);
+  safeBind(window, "scroll", onWindowLayoutChanged, true);
+
   safeBind(document, "pointerdown", onPointerDown, true);
   safeBind(document, "pointermove", onPointerMove, true);
   safeBind(document, "pointerup", onPointerUp, true);
+  safeBind(document, "mousedown", onPointerDown, true);
+  safeBind(document, "mousemove", onPointerMove, true);
+  safeBind(document, "mouseup", onPointerUp, true);
+  safeBind(document, "mouseover", onDocumentMouseOver, true);
   safeBind(document, "contextmenu", onContextMenu, true);
   safeBind(window, "beforeunload", cleanup, false);
 })();

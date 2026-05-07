@@ -265,6 +265,23 @@ async function executeAction(action, tabId, windowId, tabUrl) {
 // 종료할 수 있어서, async인 executeAction이 완료되기 전에
 // 워커가 죽는 문제가 발생한다.
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === "gesture-frame-drag-start" && sender.tab) {
+    chrome.tabs.sendMessage(
+      sender.tab.id,
+      { type: "gesture-create-context-shield" },
+      { frameId: 0 },
+      () => {
+        const err = chrome.runtime.lastError;
+        sendResponse(
+          err
+            ? { success: false, error: err.message }
+            : { success: true }
+        );
+      }
+    );
+    return true;
+  }
+
   if (message.type === "gesture" && sender.tab) {
     executeAction(
       message.action,
