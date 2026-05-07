@@ -138,7 +138,10 @@
 
       // 설정 변경 실시간 반영
       chrome.storage.onChanged.addListener((changes) => {
-        if (!isExtensionValid()) return;
+        if (!isExtensionValid()) {
+          deactivateContentScript();
+          return;
+        }
         if (changes.gestureSettings) {
           settings = { ...settings, ...changes.gestureSettings.newValue };
         }
@@ -166,6 +169,7 @@
   let isTopFrame = false;
   let topShieldRequested = false;
   let remoteShieldCleanupTimer = null;
+  let scriptInactive = false;
   const BRIDGE_SOURCE = "mouse-gesture-navigation";
   const BRIDGE_EXTENSION_ID = chrome.runtime.id;
 
@@ -207,6 +211,7 @@
   // 제스처 이름 표시용 오버레이
   // ----------------------------------------------------------
   let gestureOverlay = null;
+  let gestureOverlayHideTimer = null;
 
   // ----------------------------------------------------------
   // 컨텍스트 메뉴 차단용 투명 Shield
@@ -267,23 +272,101 @@
     if (!gestureOverlay) {
       gestureOverlay = document.createElement("div");
       gestureOverlay.id = "mouse-gesture-overlay";
+      gestureOverlay.style.setProperty("position", "fixed", "important");
+      gestureOverlay.style.setProperty("left", "50%", "important");
+      gestureOverlay.style.setProperty("bottom", "60px", "important");
+      gestureOverlay.style.setProperty(
+        "transform",
+        "translateX(-50%)",
+        "important"
+      );
+      gestureOverlay.style.setProperty("z-index", "2147483647", "important");
+      gestureOverlay.style.setProperty("pointer-events", "none", "important");
+      gestureOverlay.style.setProperty(
+        "background",
+        "rgba(30, 30, 30, 0.9)",
+        "important"
+      );
+      gestureOverlay.style.setProperty("color", "#ffffff", "important");
+      gestureOverlay.style.setProperty(
+        "font-family",
+        '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        "important"
+      );
+      gestureOverlay.style.setProperty("font-size", "16px", "important");
+      gestureOverlay.style.setProperty("font-weight", "600", "important");
+      gestureOverlay.style.setProperty("line-height", "1", "important");
+      gestureOverlay.style.setProperty("padding", "10px 24px", "important");
+      gestureOverlay.style.setProperty("border-radius", "24px", "important");
+      gestureOverlay.style.setProperty(
+        "box-shadow",
+        "0 4px 16px rgba(0, 0, 0, 0.3)",
+        "important"
+      );
+      gestureOverlay.style.setProperty("white-space", "nowrap", "important");
+      gestureOverlay.style.setProperty("user-select", "none", "important");
+      gestureOverlay.style.setProperty("opacity", "1", "important");
       document.documentElement.appendChild(gestureOverlay);
     }
+    if (gestureOverlayHideTimer) {
+      clearTimeout(gestureOverlayHideTimer);
+      gestureOverlayHideTimer = null;
+    }
     gestureOverlay.textContent = "";
-    gestureOverlay.style.display = "none";
+    gestureOverlay.style.setProperty("display", "none", "important");
   }
 
   function removeOverlay() {
+    if (gestureOverlayHideTimer) {
+      clearTimeout(gestureOverlayHideTimer);
+      gestureOverlayHideTimer = null;
+    }
     if (gestureOverlay && gestureOverlay.parentNode) {
       gestureOverlay.parentNode.removeChild(gestureOverlay);
     }
     gestureOverlay = null;
   }
 
-  function showGestureName(text) {
-    if (!settings.showGestureName || !gestureOverlay) return;
+  function scheduleOverlayHide(delay) {
+    if (gestureOverlayHideTimer) {
+      clearTimeout(gestureOverlayHideTimer);
+    }
+    gestureOverlayHideTimer = setTimeout(() => {
+      if (!isGesturing) {
+        removeOverlay();
+      }
+    }, delay);
+  }
+
+  function requestTopGestureName(text) {
+    if (isTopFrame || !text) return;
+    try {
+      window.top.postMessage(
+        {
+          source: BRIDGE_SOURCE,
+          extensionId: BRIDGE_EXTENSION_ID,
+          type: "gesture-show-name",
+          text: String(text).slice(0, 80),
+        },
+        "*"
+      );
+    } catch (err) {}
+  }
+
+  function showGestureName(text, remote) {
+    if (!settings.showGestureName || !text) return;
+    if (!isTopFrame && !remote) {
+      requestTopGestureName(text);
+    }
+    if (!gestureOverlay) {
+      createOverlay();
+    }
     gestureOverlay.textContent = text;
-    gestureOverlay.style.display = "block";
+    gestureOverlay.style.setProperty("display", "block", "important");
+    gestureOverlay.style.setProperty("opacity", "1", "important");
+    if (remote || !isGesturing) {
+      scheduleOverlayHide(900);
+    }
   }
 
   /**
@@ -371,10 +454,18 @@
       chrome.runtime.sendMessage({ type: "gesture-frame-drag-start" }, () => {
         const err = chrome.runtime.lastError;
         if (err) {
+          if (isExtensionContextError(err)) {
+            deactivateContentScript();
+            return;
+          }
           console.debug("[Gesture] top shield request failed:", err.message);
         }
       });
-    } catch (err) {}
+    } catch (err) {
+      if (isExtensionContextError(err)) {
+        deactivateContentScript();
+      }
+    }
   }
 
   function getIframeMatchText(iframe) {
@@ -637,7 +728,82 @@
     return e.button === 2;
   }
 
+  function isExtensionContextError(err) {
+    return (
+      err &&
+      err.message &&
+      err.message.indexOf("Extension context invalidated") !== -1
+    );
+  }
+
+  function deactivateContentScript() {
+    if (scriptInactive) return;
+    scriptInactive = true;
+    try {
+      for (const h of boundHandlers) {
+        h.target.removeEventListener(h.event, h.wrapped, h.options);
+      }
+      boundHandlers.length = 0;
+    } catch (err) {}
+    cleanup();
+  }
+
+  function resetGestureState() {
+    points = [];
+    directions = [];
+    segmentDistances = [];
+    totalDistance = 0;
+    usingPointerEvents = false;
+    topShieldRequested = false;
+    clearRemoteShieldCleanupTimer();
+  }
+
+  function cleanupAfterRecognizedGesture() {
+    removeCanvas();
+    removeIframeHoverGuard();
+    resetGestureState();
+    setTimeout(() => {
+      removeContextMenuShield();
+      gestureDetected = false;
+    }, 150);
+    scheduleOverlayHide(700);
+  }
+
+  function sendGestureAction(action) {
+    if (!isExtensionValid()) {
+      deactivateContentScript();
+      return false;
+    }
+
+    try {
+      chrome.runtime.sendMessage(
+        { type: "gesture", action: action },
+        (response) => {
+          const err = chrome.runtime.lastError;
+          if (err) {
+            if (isExtensionContextError(err)) {
+              deactivateContentScript();
+              return;
+            }
+            console.warn("[Gesture] sendMessage error:", err.message);
+          } else {
+            console.log("[Gesture] sendMessage response:", response);
+          }
+        }
+      );
+      return true;
+    } catch (err) {
+      if (isExtensionContextError(err)) {
+        deactivateContentScript();
+        return false;
+      }
+      console.warn("[Gesture] sendMessage exception:", err.message);
+      return false;
+    }
+  }
+
   function beginGesture(e, startedByDrag) {
+    if (scriptInactive) return;
     clearRemoteShieldCleanupTimer();
     isGesturing = true;
     gestureDetected = !!startedByDrag;
@@ -789,26 +955,10 @@
       const action = recognizeGesture();
       if (action) {
         console.log("[Gesture] sending action:", action);
-        try {
-          chrome.runtime.sendMessage(
-            { type: "gesture", action: action },
-            (response) => {
-              if (chrome.runtime.lastError) {
-                console.warn(
-                  "[Gesture] sendMessage error:",
-                  chrome.runtime.lastError.message
-                );
-              } else {
-                console.log("[Gesture] sendMessage response:", response);
-              }
-            }
-          );
-        } catch (err) {
-          console.warn("[Gesture] sendMessage exception:", err.message);
+        if (sendGestureAction(action)) {
+          showGestureName(ACTION_LABELS[action] || action);
+          cleanupAfterRecognizedGesture();
         }
-
-        showGestureName(ACTION_LABELS[action] || action);
-        setTimeout(cleanup, 150);
         return;
       }
     }
@@ -845,13 +995,7 @@
     removeOverlay();
     removeContextMenuShield();
     removeIframeHoverGuard();
-    points = [];
-    directions = [];
-    segmentDistances = [];
-    totalDistance = 0;
-    usingPointerEvents = false;
-    topShieldRequested = false;
-    clearRemoteShieldCleanupTimer();
+    resetGestureState();
   }
 
   // ----------------------------------------------------------
@@ -867,20 +1011,13 @@
   function safeBind(target, event, handler, options) {
     const wrapped = function (e) {
       try {
+        if (scriptInactive) return;
         if (handledEvents.has(e)) return;
         handledEvents.add(e);
         handler(e);
       } catch (err) {
-        if (
-          err.message &&
-          err.message.includes("Extension context invalidated")
-        ) {
-          // 확장 컨텍스트 무효화 -> 모든 리스너 제거
-          for (const h of boundHandlers) {
-            h.target.removeEventListener(h.event, h.wrapped, h.options);
-          }
-          boundHandlers.length = 0;
-          cleanup();
+        if (isExtensionContextError(err)) {
+          deactivateContentScript();
         }
       }
     };
@@ -902,12 +1039,15 @@
     if (
       !data ||
       data.source !== BRIDGE_SOURCE ||
-      data.extensionId !== BRIDGE_EXTENSION_ID ||
-      data.type !== "gesture-frame-drag-start"
+      data.extensionId !== BRIDGE_EXTENSION_ID
     ) {
       return;
     }
-    createRemoteContextMenuShield();
+    if (data.type === "gesture-frame-drag-start") {
+      createRemoteContextMenuShield();
+    } else if (data.type === "gesture-show-name") {
+      showGestureName(data.text, true);
+    }
   }
 
   // window capture 리스너는 페이지/광고 레이어가 document 단계에서
